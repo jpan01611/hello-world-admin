@@ -26,7 +26,7 @@ export default function LoginPage() {
     return <main className="login"><section className="panel">
         <p className="muted">funfunfunsahur</p>
         <h1>Sign in to continue</h1>
-        <p className="muted">Google login is required. Only approved superadmins can enter.</p>
+        <p className="muted">Google login is required.</p>
         <button className="button" onClick={signIn} disabled={loading}>
             {loading ? 'Redirecting...' : 'Continue with Google'}
         </button>
