@@ -6,7 +6,7 @@ import ClickableTableRow from '../ClickableTableRow';
 import AccessSwitch from './AccessSwitch';
 
 export default async function UsersPage({ searchParams }: { searchParams: Promise<{ q?: string; qField?: string; role?: string }> }) {
-    const { supabase, profile } = await requireAuthenticated();
+    const { supabase, user: currentUser, profile } = await requireAuthenticated();
     const isSuperadmin = profile?.is_superadmin === true;
     const params = await searchParams;
     const query = params.q?.trim() ?? '';
@@ -34,7 +34,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                 <td><Link className="table-link table-cell-link" href={userHref}>{user.avatar_url ? <img className="user-avatar" src={user.avatar_url} alt={`${name || 'User'} avatar`} /> : <span className="user-avatar avatar-placeholder" aria-label="No profile picture">{initials}</span>}</Link></td>
                 <td><Link className="table-link table-cell-link" href={userHref}>{name || <span className="is-placeholder">Unnamed user</span>}</Link></td>
                 <td className="id-cell"><Link className="table-link table-cell-link" href={userHref}>{user.id}</Link></td>
-                {isSuperadmin && <td><AccessSwitch userId={user.id} enabled={user.is_superadmin} /></td>}
+                {isSuperadmin && <td>{user.id === currentUser.id ? <span className="access-label">Superadmin</span> : <AccessSwitch userId={user.id} enabled={user.is_superadmin} />}</td>}
             </ClickableTableRow>;
         })}</tbody>
     </table></div>{!users?.length && <p className="muted">There are no profiles matching these filters.</p>}</section></>;

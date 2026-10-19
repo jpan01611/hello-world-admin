@@ -23,12 +23,23 @@ export default function LoginPage() {
         if (error) setLoading(false);
     }
 
-    return <main className="login"><section className="panel">
-        <p className="muted">funfunfunsahur</p>
-        <h1>Sign in to continue</h1>
-        <p className="muted">Google login is required.</p>
-        <button className="button" onClick={signIn} disabled={loading}>
-            {loading ? 'Redirecting...' : 'Continue with Google'}
-        </button>
-    </section></main>;
+    return <main className="login">
+        <div className="login-glow login-glow-one" />
+        <div className="login-glow login-glow-two" />
+        <section className="login-card">
+            <div className="login-brand"><span className="login-brand-mark">F</span><div><strong>FunFunFunSahur</strong><small>ADMIN CONSOLE</small></div></div>
+            <div className="login-intro">
+                <p className="eyebrow">Administrator access</p>
+                <h1>Run your workspace<br /><em>with confidence.</em></h1>
+                <p>Sign in to manage users, review media, monitor activity, and keep your community running smoothly.</p>
+            </div>
+            <button className="google-button" onClick={signIn} disabled={loading}>
+                <span className="google-mark" aria-hidden="true">G</span>
+                <span>{loading ? 'Connecting...' : 'Continue with Google'}</span>
+                <span className="button-arrow" aria-hidden="true">→</span>
+            </button>
+            <p className="login-note">Secure access for authorized team members only.</p>
+        </section>
+        <p className="login-footer">FunFunFunSahur <span>•</span> Admin workspace</p>
+    </main>;
 }

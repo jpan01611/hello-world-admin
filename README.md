@@ -12,7 +12,8 @@ FunFunFunSahur Admin is a separate Next.js and Supabase administration console f
 - AI media generation through the existing Gemini-compatible caption workflow
 - Upload and hosted-image support with validation and cleanup handling
 - Feed-caption selection and owner/superadmin authorization
-- Responsive admin tables, detail pages, loading states, and recoverable error UI
+- Responsive dense admin tables, detail pages, loading states, and recoverable error UI
+- Administrator-focused sign-in experience with branded Google OAuth entry point
 
 ## Local setup
 
@@ -49,48 +50,16 @@ npm run build
 
 Lint currently reports only non-blocking image optimization and PostCSS style warnings.
 
-## Implementation log
+## Changelog
 
-### Foundation
+### 2026-10-19
 
-- Created the standalone Next.js App Router admin application.
-- Added Supabase server/client helpers, middleware session refresh, login, OAuth callback handling, and protected admin routes.
-- Added the initial superadmin schema and row-level security migrations.
+- Refined admin sign-in branding and administrator-focused copy.
+- Added compact responsive table styling, especially for AI media.
+- Preserved owner caption deletion actions for regular users.
+- Protected superadmins from revoking their own access and hid only their own toggle.
+- Verified lint, production build, and `/` plus `/login` smoke checks.
 
-### Administration and permissions
+### Earlier
 
-- Added overview, users, media, ratings, and detail pages.
-- Added `requireAuthenticated()` and `requireSuperadmin()` authorization boundaries.
-- Enabled authenticated read access while keeping privileged mutations protected.
-- Added superadmin access management and owner-or-superadmin media deletion.
-- Added feed-caption selection based on the image-level `selected_caption_id` field.
-
-### Media and AI workflow
-
-- Recreated the two-stage image analysis and caption-generation flow.
-- Added upload and hosted URL inputs, size/type validation, image normalization, creator context, caption overrides, and failure cleanup.
-- Added media editing, deletion confirmation, additional-caption generation, previews, and visible pending/error states.
-
-### Search, filters, and interaction
-
-- Added tolerant keyword and partial-ID searches for users and media.
-- Added owner, feed, score, access, rating, and date controls.
-- Added removable filter cards and a shared “Clear filters” action.
-- Fixed stale client filter state that caused removed filter cards to return.
-- Preserved search text while navigation is pending and reset it after the server-rendered filter state updates.
-- Added row hover/focus prefetching and keyboard-accessible table navigation.
-
-### Dashboard and presentation
-
-- Added the FunFunFunSahur branding throughout the admin shell and browser metadata.
-- Made the profile shortcut navigate to the signed-in user’s profile.
-- Added a seven-day ratings/sharing chart with aligned bars, gridlines, totals, peak activity, and a rightmost Today label.
-- Added responsive layouts, dense tables, status controls, loading states, and a recoverable admin error boundary.
-
-### Reliability checks
-
-- Prevented incomplete UUID searches from reaching Supabase UUID comparisons.
-- Added explicit Supabase error handling for dashboard, ratings, and management queries.
-- Fixed stale `queryInputRef` usage in the media filter component.
-- Fixed media detail and deletion-action TypeScript errors found during the final build check.
-- Confirmed the production build and runtime route smoke checks pass.
+- Added the Next.js/Supabase admin console, Google OAuth, protected routes, user and media management, ratings review, AI caption generation, filtering, and responsive layouts.

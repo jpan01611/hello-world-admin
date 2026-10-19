@@ -246,10 +246,13 @@ export async function signOut() {
 }
 
 export async function setSuperadmin(formData: FormData) {
-    const { supabase } = await requireSuperadmin();
+    const { supabase, user } = await requireSuperadmin();
     const userId = text(formData, 'user_id');
     const isSuperadmin = text(formData, 'is_superadmin') === 'true';
     if (!userId) throw new Error('User ID is required.');
+    if (userId === user.id && !isSuperadmin) {
+        throw new Error('You cannot revoke your own superadmin access.');
+    }
 
     const { data: target, error: lookupError } = await supabase
         .from('profiles')
