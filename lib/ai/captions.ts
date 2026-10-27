@@ -1,18 +1,38 @@
 import OpenAI from 'openai';
 import sharp from 'sharp';
+import { createClient } from '@/lib/supabase/server';
 
-const MODEL = 'gemini-2.5-flash';
+const FALLBACK_MODEL = 'gemini-2.5-flash';
+const FALLBACK_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
 const MAX_CONTEXT_LENGTH = 500;
 const MAX_ANALYSIS_LENGTH = 1200;
 const DESCRIPTION_PROMPT = 'Analyze only the uploaded photo before considering any outside context. Identify the visible subject, action, setting, composition, mood, and notable visual details in 2-3 factual sentences. Do not write a caption, add a joke, infer hidden details, or mention NYC or Columbia University yet.';
 const clientCache = new Map<string, OpenAI>();
 
-function client(apiKey: string) {
-    const existing = clientCache.get(apiKey);
+function client(apiKey: string, baseURL: string) {
+    const cacheKey = `${apiKey}:${baseURL}`;
+    const existing = clientCache.get(cacheKey);
     if (existing) return existing;
-    const created = new OpenAI({ apiKey, baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/' });
-    clientCache.set(apiKey, created);
+    const created = new OpenAI({ apiKey, baseURL });
+    clientCache.set(cacheKey, created);
     return created;
+}
+
+async function configuredModel() {
+    try {
+        const supabase = await createClient();
+        const { data } = await supabase.from('llm_models')
+            .select('model_key, llm_providers(base_url)')
+            .eq('active', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        const provider = Array.isArray(data?.llm_providers) ? data.llm_providers[0] : data?.llm_providers;
+        if (data?.model_key) return { model: data.model_key, baseURL: provider?.base_url || FALLBACK_BASE_URL };
+    } catch {
+        // Keep the existing Gemini configuration available while the optional admin catalog is unavailable.
+    }
+    return { model: FALLBACK_MODEL, baseURL: FALLBACK_BASE_URL };
 }
 
 function limit(value: string | null | undefined, length: number, fallback: string) {
@@ -61,8 +81,9 @@ function responseText(result: unknown) {
 async function complete(messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], maxTokens: number, thinking = false) {
     const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey) throw new Error('Gemini is not configured. Set GEMINI_API_KEY in your environment.');
-    const result = await client(apiKey).chat.completions.create({
-        model: MODEL,
+    const configured = await configuredModel();
+    const result = await client(apiKey, configured.baseURL).chat.completions.create({
+        model: configured.model,
         max_tokens: maxTokens,
         messages,
         ...(thinking ? { extra_body: { google: { thinking_config: { thinking_budget: 0 } } } } : {}),

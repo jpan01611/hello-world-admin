@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireAuthenticated } from '@/lib/auth';
 import { signOut } from '@/lib/admin-actions';
+import { OPERATION_LABELS, OPERATION_RESOURCES } from '@/lib/operations';
 
 export default async function AdminLayout({ children }: Readonly<{ children: React.ReactNode }>) {
     const { user, profile } = await requireAuthenticated();
@@ -14,8 +15,20 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
                 <Link href="/admin"><span className="nav-icon">⌂</span>Overview</Link>
                 <p className="nav-label">Manage</p>
                 <Link href="/admin/users"><span className="nav-icon">♙</span>Users</Link>
-                <Link href="/admin/media"><span className="nav-icon">▧</span>AI Media</Link>
-                <Link href="/admin/ratings"><span className="nav-icon">◈</span>Ratings</Link>
+                <details className="nav-tree" open>
+                    <summary><span className="nav-icon">▧</span><span>AI Media</span><span className="nav-tree-chevron">▾</span></summary>
+                    <div className="nav-tree-items">
+                        <Link href="/admin/media"><span className="nav-tree-branch">└</span>Media library</Link>
+                        <Link href="/admin/ratings"><span className="nav-tree-branch">└</span>Ratings</Link>
+                        <Link href="/admin/operations?resource=images"><span className="nav-tree-branch">└</span>Images table</Link>
+                    </div>
+                </details>
+                <details className="nav-tree" open>
+                    <summary><span className="nav-icon">◌</span><span>Operations</span><span className="nav-tree-chevron">▾</span></summary>
+                    <div className="nav-tree-items">
+                        {OPERATION_RESOURCES.filter((resource) => resource !== 'images').map((resource) => <Link href={`/admin/operations?resource=${resource}`} key={resource}><span className="nav-tree-branch">└</span>{OPERATION_LABELS[resource]}</Link>)}
+                    </div>
+                </details>
             </nav>
             <div className="sidebar-footer"><Link className="user-chip" href={`/admin/users/${user.id}`} aria-label="Open your profile"><span>{name.charAt(0).toUpperCase()}</span><div><strong>{name}</strong><small>{isSuperadmin ? 'Superadmin' : 'User'}</small></div></Link><form action={signOut}><button className="signout" type="submit">Sign out</button></form></div>
         </aside>

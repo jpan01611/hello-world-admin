@@ -8,7 +8,7 @@ export async function requireAuthenticated() {
 
     const { data: profile } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, is_superadmin')
+        .select('id, first_name, last_name, is_superadmin, role')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -21,4 +21,10 @@ export async function requireSuperadmin() {
 
     if (!profile?.is_superadmin) redirect('/unauthorized');
     return { ...result, profile };
+}
+
+export async function requireMediaAdmin() {
+    const result = await requireAuthenticated();
+    if (!['admin', 'superadmin'].includes(result.profile?.role ?? '') && result.profile?.is_superadmin !== true) redirect('/unauthorized');
+    return { ...result, profile: result.profile! };
 }

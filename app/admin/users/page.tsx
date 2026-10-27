@@ -11,13 +11,14 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
     const params = await searchParams;
     const query = params.q?.trim() ?? '';
     const queryField = params.qField === 'id' ? 'id' : 'name';
-    const roleFilter = params.role === 'superadmin' || params.role === 'standard' ? params.role : 'all';
+    const roleFilter = params.role === 'superadmin' || params.role === 'admin' || params.role === 'member' ? params.role : 'all';
     let usersQuery = supabase.from('profiles')
-        .select('id, first_name, last_name, avatar_url, is_superadmin')
+        .select('id, first_name, last_name, avatar_url, is_superadmin, role')
         .order('id', { ascending: true }).limit(100);
     if (query && queryField === 'name') usersQuery = usersQuery.or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`);
-    if (roleFilter === 'superadmin') usersQuery = usersQuery.eq('is_superadmin', true);
-    if (roleFilter === 'standard') usersQuery = usersQuery.eq('is_superadmin', false);
+    if (roleFilter === 'superadmin') usersQuery = usersQuery.eq('role', 'superadmin');
+    if (roleFilter === 'admin') usersQuery = usersQuery.eq('role', 'admin');
+    if (roleFilter === 'member') usersQuery = usersQuery.eq('role', 'member');
     const { data: loadedUsers, error } = await usersQuery;
     if (error) throw new Error(`Unable to load users: ${error.message}`);
     const users = query && queryField === 'id'
@@ -34,7 +35,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                 <td><Link className="table-link table-cell-link" href={userHref}>{user.avatar_url ? <img className="user-avatar" src={user.avatar_url} alt={`${name || 'User'} avatar`} /> : <span className="user-avatar avatar-placeholder" aria-label="No profile picture">{initials}</span>}</Link></td>
                 <td><Link className="table-link table-cell-link" href={userHref}>{name || <span className="is-placeholder">Unnamed user</span>}</Link></td>
                 <td className="id-cell"><Link className="table-link table-cell-link" href={userHref}>{user.id}</Link></td>
-                {isSuperadmin && <td>{user.id === currentUser.id ? <span className="access-label">Superadmin</span> : <AccessSwitch userId={user.id} enabled={user.is_superadmin} />}</td>}
+                {isSuperadmin && <td>{user.id === currentUser.id ? <span className="access-label">Superadmin</span> : <AccessSwitch userId={user.id} role={user.role ?? (user.is_superadmin ? 'superadmin' : 'member')} />}</td>}
             </ClickableTableRow>;
         })}</tbody>
     </table></div>{!users?.length && <p className="muted">There are no profiles matching these filters.</p>}</section></>;

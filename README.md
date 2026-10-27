@@ -12,6 +12,7 @@ FunFunFunSahur Admin is a separate Next.js and Supabase administration console f
 - AI media generation through the existing Gemini-compatible caption workflow
 - Upload and hosted-image support with validation and cleanup handling
 - Feed-caption selection and owner/superadmin authorization
+- Operations workspace for prompt chains, chain steps/mix, terms, generation requests, AI examples, LLM providers/models/responses, and signup allowlists
 - Responsive dense admin tables, detail pages, loading states, and recoverable error UI
 - Administrator-focused sign-in experience with branded Google OAuth entry point
 
@@ -29,7 +30,7 @@ FunFunFunSahur Admin is a separate Next.js and Supabase administration console f
    cp .env.example .env.local
    ```
 
-3. Apply the Supabase migrations in `supabase/migrations/` to the target project.
+3. Apply the Supabase migrations in `supabase/migrations/` to the target project. Migration `0022_admin_operations.sql` adds the prompt, generation, LLM, and signup-control resources used by the Operations workspace; `0023_seed_prompt_chain.sql` adds an idempotent default caption-generation chain; `0024_seed_gemini_llm.sql` registers the Google Gemini provider and the `gemini-2.5-flash` model used by the caption workflow.
 
 4. Start the development server:
 
@@ -40,6 +41,8 @@ FunFunFunSahur Admin is a separate Next.js and Supabase administration console f
 5. Open `http://localhost:3000`.
 
 The application expects the Supabase OAuth provider and redirect allowlist to be configured for the deployed application URL. Keep `.env.local` private; it is excluded by `.gitignore`.
+
+LLM provider/model records describe available integrations; API keys remain server-side environment secrets such as `GEMINI_API_KEY` and are never stored in the admin UI.
 
 ## Verification
 

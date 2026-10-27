@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requireAuthenticated, requireSuperadmin } from '@/lib/auth';
+import { requireAuthenticated, requireMediaAdmin, requireSuperadmin } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { generateDescription, generateFunnyCaption } from '@/lib/ai/captions';
 import { uploadSizeError } from '@/lib/upload-limits';
@@ -52,12 +52,12 @@ export async function createMedia(formData: FormData) {
 }
 
 export async function generateMedia(formData: FormData) {
-    const { supabase, user } = await requireSuperadmin();
+    const { supabase, user, profile } = await requireMediaAdmin();
     const file = formData.get('file');
     const submittedUrl = text(formData, 'image_url');
     const context = text(formData, 'context').slice(0, 500);
     const captionOverride = text(formData, 'caption_override').slice(0, 500);
-    const requestedOwnerId = text(formData, 'created_by') || user.id;
+    const requestedOwnerId = profile.role === 'superadmin' || profile.is_superadmin ? text(formData, 'created_by') || user.id : user.id;
     let imageUrl = submittedUrl;
     let storagePath: string | null = null;
 
@@ -266,6 +266,18 @@ export async function setSuperadmin(formData: FormData) {
         .update({ is_superadmin: isSuperadmin })
         .eq('id', userId);
     if (error) throw new Error(`Unable to update access: ${error.message}`);
+    revalidatePath('/admin/users');
+    revalidatePath(`/admin/users/${userId}`);
+}
+
+export async function setUserRole(formData: FormData) {
+    const { supabase, user } = await requireSuperadmin();
+    const userId = text(formData, 'user_id');
+    const role = text(formData, 'role');
+    if (!userId || !['member', 'admin', 'superadmin'].includes(role)) throw new Error('A valid user and role are required.');
+    if (userId === user.id && role !== 'superadmin') throw new Error('You cannot remove your own superadmin access.');
+    const { error } = await supabase.from('profiles').update({ role, is_superadmin: role === 'superadmin' }).eq('id', userId);
+    if (error) throw new Error(`Unable to update role: ${error.message}`);
     revalidatePath('/admin/users');
     revalidatePath(`/admin/users/${userId}`);
 }

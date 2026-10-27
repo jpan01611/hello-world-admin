@@ -1,20 +1,16 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-import { setSuperadmin } from '@/lib/admin-actions';
+import { setUserRole } from '@/lib/admin-actions';
 
-function SwitchButton({ enabled, disabled }: { enabled: boolean; disabled: boolean }) {
+function RoleButton({ role, disabled }: { role: string; disabled: boolean }) {
     const { pending } = useFormStatus();
-    return <button className={`access-switch ${enabled ? 'is-on' : ''}`} type="submit" role="switch" aria-checked={enabled} aria-label={pending ? 'Saving access' : disabled ? 'Your superadmin access cannot be revoked' : enabled ? 'Revoke superadmin access' : 'Grant superadmin access'} disabled={pending || disabled}>
-        <span className="access-switch-thumb" />
-    </button>;
+    return <select name="role" defaultValue={role} aria-label="User role" disabled={pending || disabled} onClick={(event) => event.stopPropagation()} onChange={(event) => event.currentTarget.form?.requestSubmit()}><option value="member">Member</option><option value="admin">Admin</option><option value="superadmin">Superadmin</option></select>;
 }
 
-export default function AccessSwitch({ userId, enabled, disabled = false }: { userId: string; enabled: boolean; disabled?: boolean }) {
-    return <form className="access-control" action={setSuperadmin} onClick={(event) => event.stopPropagation()}>
+export default function AccessSwitch({ userId, role, disabled = false }: { userId: string; role: string; disabled?: boolean }) {
+    return <form className="access-control" action={setUserRole} onClick={(event) => event.stopPropagation()}>
         <input type="hidden" name="user_id" value={userId} />
-        <input type="hidden" name="is_superadmin" value={String(!enabled)} />
-        <SwitchButton enabled={enabled} disabled={disabled} />
-        <span className="access-label">{enabled ? 'Superadmin' : 'Standard'}</span>
+        <RoleButton role={role} disabled={disabled} />
     </form>;
 }
