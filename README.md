@@ -30,7 +30,7 @@ FunFunFunSahur Admin is a separate Next.js and Supabase administration console f
    cp .env.example .env.local
    ```
 
-3. Apply the Supabase migrations in `supabase/migrations/` to the target project. Migration `0022_admin_operations.sql` adds the prompt, generation, LLM, and signup-control resources used by the Operations workspace; `0023_seed_prompt_chain.sql` adds an idempotent default caption-generation chain; `0024_seed_gemini_llm.sql` registers the Google Gemini provider and the `gemini-2.5-flash` model used by the caption workflow.
+3. Apply the Supabase migrations in `supabase/migrations/` to the target project. Migration `0022_admin_operations.sql` adds the prompt, generation, LLM, and signup-control resources; `0023_seed_prompt_chain.sql` adds the default caption chain; `0024_seed_gemini_llm.sql` seeds Gemini; `0026_capture_caption_operations.sql` records generation history; `0027_llm_provider_secret_reference.sql` adds server-secret indirection; and `0028_llm_generation_steps.sql` adds editable vision/caption step configuration.
 
 4. Start the development server:
 
@@ -42,7 +42,9 @@ FunFunFunSahur Admin is a separate Next.js and Supabase administration console f
 
 The application expects the Supabase OAuth provider and redirect allowlist to be configured for the deployed application URL. Keep `.env.local` private; it is excluded by `.gitignore`.
 
-LLM provider/model records describe available integrations; API keys remain server-side environment secrets such as `GEMINI_API_KEY` and are never stored in the admin UI.
+LLM provider/model records and generation-step rows are shared live configuration consumed by both this admin app and the user-facing frontend. API keys remain deployment-local server secrets such as `GEMINI_API_KEY` and `OPENAI_API_KEY`; `secret_env_var` stores only the variable name and never a key.
+
+The admin Operations workspace controls active providers, models, prompts, limits, and optional per-step model overrides. The frontend reads the same Supabase configuration server-side and falls back through eligible active providers. Keep the corresponding provider secrets configured in each deployment that can generate captions.
 
 ## Verification
 
