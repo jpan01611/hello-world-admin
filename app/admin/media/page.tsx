@@ -12,18 +12,18 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
     const isSuperadmin = profile?.is_superadmin === true;
     const params = await searchParams;
     const query = params.q?.trim() ?? '';
-    const queryField = ['caption', 'caption_id', 'owner_name'].includes(params.qField ?? '') ? params.qField! : 'caption';
+    const queryField = ['caption', 'caption_id', 'owner_name', 'description', 'context'].includes(params.qField ?? '') ? params.qField! : 'caption';
     const ownerFilter = params.owner?.trim() ?? '';
     const feedFilter = params.feed === 'yes' || params.feed === 'no' ? params.feed : 'all';
     const scoreFilter = ['positive', 'zero', 'negative'].includes(params.score ?? '') ? params.score! : 'all';
     const sortOrder = params.sort === 'oldest' ? 'oldest' : 'newest';
     const { data: sourceImages, error: imagesError } = await supabase.from('images')
-        .select('id, image_url, selected_caption_id, created_by, created_at')
+        .select('id, image_url, context, selected_caption_id, created_by, created_at')
         .order('created_at', { ascending: sortOrder === 'oldest' }).limit(100);
     if (imagesError) throw new Error(`Unable to load media images: ${imagesError.message}`);
     const imageIds = (sourceImages ?? []).map((image) => image.id);
     const { data: captionRows, error: captionsError } = imageIds.length
-        ? await supabase.from('captions').select('id, image_id, created_by, caption, created_at').in('image_id', imageIds)
+        ? await supabase.from('captions').select('id, image_id, created_by, caption, description, vision_prompt, caption_prompt, created_at').in('image_id', imageIds)
         : { data: [], error: null };
     if (captionsError) throw new Error(`Unable to load media captions: ${captionsError.message}`);
     const captionsByImage = new Map<string, typeof captionRows>();
@@ -34,6 +34,10 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
             ? captions.filter((caption) => caption.caption?.toLowerCase().includes(query.toLowerCase()))
             : query && queryField === 'caption_id'
                 ? captions.filter((caption) => caption.id.toLowerCase().includes(query.trim().toLowerCase()))
+                : query && queryField === 'context'
+                    ? captions.filter((caption) => (sourceImages?.find((image) => image.id === caption.image_id)?.context ?? '').toLowerCase().includes(query.toLowerCase()))
+                : query && queryField === 'description'
+                    ? captions.filter((caption) => caption.description?.toLowerCase().includes(query.toLowerCase()))
                 : captions;
         if (matchingCaptions.length) return matchingCaptions;
         if (!query && captions.length === 0) return [{ id: `image-${image.id}`, image_id: image.id, created_by: image.created_by, caption: null, description: null, created_at: image.created_at }];
@@ -104,10 +108,10 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
         const queryString = next.toString();
         return `/admin/media${queryString ? `?${queryString}` : ''}` as Route;
     }
-    const queryLabel = queryField === 'caption' ? 'Caption keywords' : queryField === 'caption_id' ? 'Caption ID' : 'Owner name';
+    const queryLabel = queryField === 'caption' ? 'Caption keywords' : queryField === 'caption_id' ? 'Caption ID' : queryField === 'owner_name' ? 'Owner name' : queryField === 'context' ? 'Creator context' : 'Photo description';
     const ownerOptions = (owners ?? []).map((owner) => ({ id: owner.id, name: ownerNames.get(owner.id) ?? 'Unnamed user' })).sort((a, b) => a.name.localeCompare(b.name));
-    return <><header className="header"><div><p className="eyebrow">Manage / Content</p><h1>AI media library</h1><p className="page-subtitle">Review generated captions, source images, and community response.</p></div>{isSuperadmin && <Link className="button" href="/admin/media/new">+ New media</Link>}</header>
-        <section className="panel"><MediaFilters key={`${query}|${queryField}|${ownerFilter}|${feedFilter}|${scoreFilter}|${sortOrder}`} initialQueryField={queryField} initialOwner={ownerFilter} initialFeed={feedFilter} initialScore={scoreFilter} initialSort={sortOrder} owners={ownerOptions} />{hasFilters && <div className="filter-actions"><div className="active-filters" aria-label="Active filters"><span className="filter-summary-label">Filters</span>{query && <Link className="filter-chip filter-chip-removable" href={filterHref(['q'])}><span>{queryLabel}: {query}</span><span className="filter-chip-remove" aria-label={`Remove ${queryLabel} filter`}>×</span></Link>}{ownerFilter && <Link className="filter-chip filter-chip-removable" href={filterHref(['owner'])}><span>Owner: {ownerNames.get(ownerFilter) ?? ownerFilter}</span><span className="filter-chip-remove" aria-label="Remove owner filter">×</span></Link>}{feedFilter !== 'all' && <Link className="filter-chip filter-chip-removable" href={filterHref(['feed'])}><span>Show in feed: {feedFilter === 'yes' ? 'Yes' : 'No'}</span><span className="filter-chip-remove" aria-label="Remove show in feed filter">×</span></Link>}{scoreFilter !== 'all' && <Link className="filter-chip filter-chip-removable" href={filterHref(['score'])}><span>Score: {scoreFilter}</span><span className="filter-chip-remove" aria-label="Remove score filter">×</span></Link>}{sortOrder !== 'newest' && <Link className="filter-chip filter-chip-removable" href={filterHref(['sort'])}><span>Created: Oldest first</span><span className="filter-chip-remove" aria-label="Remove date filter">×</span></Link>}<span className="result-count">{filteredMedia.length} results</span>        </div><Link className="clear-filter" href={clearHref}>Clear filters</Link></div>}
+    return <><header className="header"><div><p className="eyebrow">Manage / Columbia student content</p><h1>AI media library</h1><p className="page-subtitle">Review source photos, creator context, and captions for relevance, accuracy, and natural Columbia references.</p></div>{isSuperadmin && <Link className="button" href="/admin/media/new">+ New media</Link>}</header>
+        <section className="panel"><MediaFilters key={`${query}|${queryField}|${ownerFilter}|${feedFilter}|${scoreFilter}|${sortOrder}`} initialQuery={query} initialQueryField={queryField} initialOwner={ownerFilter} initialFeed={feedFilter} initialScore={scoreFilter} initialSort={sortOrder} owners={ownerOptions} />{hasFilters && <div className="filter-actions"><div className="active-filters" aria-label="Active filters"><span className="filter-summary-label">Filters</span>{query && <Link className="filter-chip filter-chip-removable" href={filterHref(['q'])}><span>{queryLabel}: {query}</span><span className="filter-chip-remove" aria-label={`Remove ${queryLabel} filter`}>×</span></Link>}{ownerFilter && <Link className="filter-chip filter-chip-removable" href={filterHref(['owner'])}><span>Owner: {ownerNames.get(ownerFilter) ?? ownerFilter}</span><span className="filter-chip-remove" aria-label="Remove owner filter">×</span></Link>}{feedFilter !== 'all' && <Link className="filter-chip filter-chip-removable" href={filterHref(['feed'])}><span>Show in feed: {feedFilter === 'yes' ? 'Yes' : 'No'}</span><span className="filter-chip-remove" aria-label="Remove show in feed filter">×</span></Link>}{scoreFilter !== 'all' && <Link className="filter-chip filter-chip-removable" href={filterHref(['score'])}><span>Score: {scoreFilter}</span><span className="filter-chip-remove" aria-label="Remove score filter">×</span></Link>}{sortOrder !== 'newest' && <Link className="filter-chip filter-chip-removable" href={filterHref(['sort'])}><span>Created: Oldest first</span><span className="filter-chip-remove" aria-label="Remove date filter">×</span></Link>}<span className="result-count">{filteredMedia.length} results</span>        </div><Link className="clear-filter" href={clearHref}>Clear filters</Link></div>}
             <div className="table-scroll media-table-scroll"><table className="media-table"><colgroup><col className="media-col-id" /><col className="media-col-preview" /><col className="media-col-caption" /><col className="media-col-owner" /><col className="media-col-score" /><col className="media-col-vote" /><col className="media-col-downvote" /><col className="media-col-feed" /><col className="media-col-created" />{hasActionColumn && <col className="media-col-actions" />}</colgroup><thead><tr><th>Caption ID</th><th>Preview</th><th>Caption</th><th>Owner</th><th>Score</th><th>Upvotes</th><th>Downvotes</th><th>Show in feed</th><th>Created</th>{hasActionColumn && <th>Actions</th>}</tr></thead>
             <tbody>{filteredMedia.map((item) => {
                 const image = imagesById.get(item.image_id);

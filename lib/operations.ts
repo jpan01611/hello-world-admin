@@ -1,7 +1,7 @@
 export const OPERATION_RESOURCES = [
     'prompt_chains', 'prompt_chain_steps', 'prompt_chain_mix', 'terms',
     'generation_requests', 'ai_generation_examples', 'llm_models',
-    'llm_providers', 'llm_responses', 'allowed_signup_domains',
+    'llm_providers', 'llm_generation_steps', 'llm_responses', 'allowed_signup_domains',
     'whitelisted_email_addresses', 'images',
 ] as const;
 
@@ -16,8 +16,20 @@ export const OPERATION_LABELS: Record<OperationResource, string> = {
     ai_generation_examples: 'AI examples',
     llm_models: 'LLM models',
     llm_providers: 'LLM providers',
+    llm_generation_steps: 'LLM generation steps',
     llm_responses: 'LLM responses',
     allowed_signup_domains: 'Signup domains',
     whitelisted_email_addresses: 'Whitelisted emails',
     images: 'Images',
 };
+
+export const READ_ONLY_OPERATION_RESOURCES: OperationResource[] = [
+    'prompt_chains',
+    'prompt_chain_steps',
+    'generation_requests',
+    'llm_responses',
+];
+
+export function canManageOperation(resource: OperationResource) {
+    return !READ_ONLY_OPERATION_RESOURCES.includes(resource);
+}

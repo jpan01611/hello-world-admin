@@ -24,9 +24,16 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
                     </div>
                 </details>
                 <details className="nav-tree" open>
-                    <summary><span className="nav-icon">◌</span><span>Operations</span><span className="nav-tree-chevron">▾</span></summary>
+                    <summary><span className="nav-icon">◌</span><span>Configuration & audit</span><span className="nav-tree-chevron">▾</span></summary>
                     <div className="nav-tree-items">
-                        {OPERATION_RESOURCES.filter((resource) => resource !== 'images').map((resource) => <Link href={`/admin/operations?resource=${resource}`} key={resource}><span className="nav-tree-branch">└</span>{OPERATION_LABELS[resource]}</Link>)}
+                        <span className="nav-tree-group-label">Prompt configuration</span>
+                        {OPERATION_RESOURCES.filter((resource) => ['prompt_chains', 'prompt_chain_steps', 'prompt_chain_mix', 'terms', 'ai_generation_examples'].includes(resource)).map((resource) => <Link href={`/admin/operations?resource=${resource}`} key={resource}><span className="nav-tree-branch">└</span>{OPERATION_LABELS[resource]}</Link>)}
+                        <span className="nav-tree-group-label">Model configuration</span>
+                        {OPERATION_RESOURCES.filter((resource) => ['llm_providers', 'llm_models', 'llm_generation_steps'].includes(resource)).map((resource) => <Link href={`/admin/operations?resource=${resource}`} key={resource}><span className="nav-tree-branch">└</span>{OPERATION_LABELS[resource]}</Link>)}
+                        <span className="nav-tree-group-label">Access rules</span>
+                        {OPERATION_RESOURCES.filter((resource) => ['allowed_signup_domains', 'whitelisted_email_addresses'].includes(resource)).map((resource) => <Link href={`/admin/operations?resource=${resource}`} key={resource}><span className="nav-tree-branch">└</span>{OPERATION_LABELS[resource]}</Link>)}
+                        <span className="nav-tree-group-label">Generation audit</span>
+                        {OPERATION_RESOURCES.filter((resource) => ['generation_requests', 'llm_responses'].includes(resource)).map((resource) => <Link href={`/admin/operations?resource=${resource}`} key={resource}><span className="nav-tree-branch">└</span>{OPERATION_LABELS[resource]}</Link>)}
                     </div>
                 </details>
             </nav>

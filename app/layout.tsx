@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
     title: 'FunFunFunSahur Admin',
-    description: 'Administration for the FunFunFunSahur AI media application',
+    description: 'Administration for a Columbia student AI caption application',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

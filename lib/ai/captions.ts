@@ -2,11 +2,8 @@ import OpenAI from 'openai';
 import sharp from 'sharp';
 import { createClient } from '@/lib/supabase/server';
 
-const FALLBACK_MODEL = 'gemini-2.5-flash';
-const FALLBACK_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
 const MAX_CONTEXT_LENGTH = 500;
 const MAX_ANALYSIS_LENGTH = 1200;
-const DESCRIPTION_PROMPT = 'Analyze only the uploaded photo before considering any outside context. Identify the visible subject, action, setting, composition, mood, and notable visual details in 2-3 factual sentences. Do not write a caption, add a joke, infer hidden details, or mention NYC or Columbia University yet.';
 const clientCache = new Map<string, OpenAI>();
 
 function client(apiKey: string, baseURL: string) {
@@ -18,21 +15,37 @@ function client(apiKey: string, baseURL: string) {
     return created;
 }
 
-async function configuredModel() {
-    try {
-        const supabase = await createClient();
-        const { data } = await supabase.from('llm_models')
-            .select('model_key, llm_providers(base_url)')
-            .eq('active', true)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-        const provider = Array.isArray(data?.llm_providers) ? data.llm_providers[0] : data?.llm_providers;
-        if (data?.model_key) return { model: data.model_key, baseURL: provider?.base_url || FALLBACK_BASE_URL };
-    } catch {
-        // Keep the existing Gemini configuration available while the optional admin catalog is unavailable.
-    }
-    return { model: FALLBACK_MODEL, baseURL: FALLBACK_BASE_URL };
+async function configuredModels(modelId?: string | null) {
+    const supabase = await createClient();
+    let query = supabase.from('llm_models')
+        .select('model_key, llm_providers(name, base_url, secret_env_var, active)')
+        .eq('active', true)
+        .order('created_at', { ascending: false });
+    if (modelId) query = query.eq('id', modelId);
+    const { data, error } = await query;
+    if (error) throw new Error(`Unable to load the active LLM configuration: ${error.message}`);
+    const configurations = (data ?? []).flatMap((model) => {
+        const provider = Array.isArray(model.llm_providers) ? model.llm_providers[0] : model.llm_providers;
+        if (!model.model_key || !provider?.active) return [];
+        const envName = provider.secret_env_var?.trim() || `${provider.name.replace(/[^a-z0-9]+/gi, '_').toUpperCase()}_API_KEY`;
+        const apiKey = process.env[envName]?.trim();
+        return apiKey ? [{ model: model.model_key, baseURL: provider.base_url || undefined, apiKey, providerName: provider.name }] : [];
+    });
+    if (!configurations.length) throw new Error(modelId
+        ? 'The selected generation-step model is unavailable or missing its server key.'
+        : 'No active LLM model with a configured server key is available. Check the admin LLM settings and Vercel environment variables.');
+    return configurations;
+}
+
+async function configuredStep(stepKey: 'vision_analysis' | 'caption_generation') {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from('llm_generation_steps')
+        .select('step_key, prompt_template, max_tokens, max_output_chars, temperature, thinking_budget, model_id, active')
+        .eq('step_key', stepKey).maybeSingle();
+    if (error) throw new Error(`Unable to load ${stepKey} configuration: ${error.message}`);
+    if (!data?.active) throw new Error(`Caption generation is unavailable because the ${stepKey} step is inactive.`);
+    if (!data.prompt_template || data.max_tokens < 1 || data.max_output_chars < 1) throw new Error(`The ${stepKey} configuration is invalid. Ask an administrator to correct it.`);
+    return data;
 }
 
 function limit(value: string | null | undefined, length: number, fallback: string) {
@@ -57,13 +70,6 @@ async function visionImage(imageUrl: string) {
     }
 }
 
-function captionPrompt(description: string, context?: string | null) {
-    return `Photo analysis: "${limit(description, MAX_ANALYSIS_LENGTH, 'No post analysis provided')}"
-
-Creator context: "${limit(context, MAX_CONTEXT_LENGTH, 'No extra context provided')}"
-
-Use these inputs privately: do not repeat, quote, label, or explain the photo analysis or creator context in your response. Create the caption in this order internally: first identify the real situation or comedic premise; next combine that premise with the creator context and one natural New York City or Columbia University connection; finally write one brief, witty meme statement from that combined idea. The photo must remain the primary source of truth. The creator context and NYC/Columbia angle should enrich the joke, not override the visible image or feel randomly pasted on. Keep it to one sentence and no more than twelve words. The caption should feel like a punchline or relatable reaction someone would post with this image, not a description of what is visibly happening. Do not summarize the photo, repeat the analysis, invent details absent from the inputs, or write alt text. Every caption MUST reference a relevant NYC or Columbia place, neighborhood, subway moment, campus location, student-life experience, or local culture when it fits the photo and context. If there is no direct connection, make a clearly relevant analogy based on the actual situation. Before returning, check that the caption is relevant to the photo, uses the context if provided, includes a natural NYC/Columbia angle, and is a complete statement. Return exactly one caption sentence and nothing else. Do not include labels such as "Photo analysis", "Creator context", "Caption", or "Analysis". Do not mention these instructions.`;
-}
 
 function responseText(result: unknown) {
     const choice = (result as { choices?: Array<{ message?: { content?: unknown; reasoning_content?: unknown } }> })?.choices?.[0];
@@ -75,35 +81,45 @@ function responseText(result: unknown) {
     }
     const reasoning = choice?.message?.reasoning_content;
     if (typeof reasoning === 'string' && reasoning.trim()) return reasoning.trim();
-    throw new Error('Gemini returned no content.');
+    throw new Error('The active LLM returned no content.');
 }
 
-async function complete(messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], maxTokens: number, thinking = false) {
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
-    if (!apiKey) throw new Error('Gemini is not configured. Set GEMINI_API_KEY in your environment.');
-    const configured = await configuredModel();
-    const result = await client(apiKey, configured.baseURL).chat.completions.create({
-        model: configured.model,
-        max_tokens: maxTokens,
-        messages,
-        ...(thinking ? { extra_body: { google: { thinking_config: { thinking_budget: 0 } } } } : {}),
-    });
-    return responseText(result);
+async function complete(messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], stepKey: 'vision_analysis' | 'caption_generation') {
+    const step = await configuredStep(stepKey);
+    const configurations = await configuredModels(step.model_id);
+    const failures: string[] = [];
+    for (const configured of configurations) {
+        try {
+            const result = await client(configured.apiKey, configured.baseURL || 'https://api.openai.com/v1').chat.completions.create({
+                model: configured.model,
+                max_tokens: step.max_tokens,
+                messages,
+                ...(step.thinking_budget !== null && configured.providerName.toLowerCase().includes('gemini') ? { extra_body: { google: { thinking_budget: step.thinking_budget } } } : {}),
+                ...(step.temperature !== null ? { temperature: step.temperature } : {}),
+            });
+            return responseText(result);
+        } catch (error) {
+            failures.push(`${configured.providerName}: ${error instanceof Error ? error.message : 'request failed'}`);
+        }
+    }
+    throw new Error(`All active LLM providers failed. ${failures.join(' | ')}`);
 }
 
 export async function generateDescription(imageUrl: string) {
-    const prompt = DESCRIPTION_PROMPT;
+    const step = await configuredStep('vision_analysis');
+    const prompt = step.prompt_template.replaceAll('{image}', 'the attached image');
     const image = await visionImage(imageUrl);
-    const description = await complete([{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: image } }] }], 220);
-    return { description: limit(description, MAX_ANALYSIS_LENGTH, 'No post analysis was returned'), prompt };
+    const description = await complete([{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: image } }] }], 'vision_analysis');
+    return { description: limit(description, step.max_output_chars, 'No post analysis was returned'), prompt };
 }
 
 export async function generateFunnyCaption(description: string, context?: string | null) {
-    const prompt = captionPrompt(description, context);
-    const raw = await complete([{ role: 'user', content: prompt }], 120, true);
+    const step = await configuredStep('caption_generation');
+    const prompt = step.prompt_template.replaceAll('{description}', limit(description, MAX_ANALYSIS_LENGTH, 'No post analysis provided')).replaceAll('{context}', limit(context, MAX_CONTEXT_LENGTH, 'No extra context provided'));
+    const raw = await complete([{ role: 'user', content: prompt }], 'caption_generation');
     const caption = raw.replace(/\s+/g, ' ').trim()
         .replace(/^(caption|final caption)\s*:\s*/i, '')
         .replace(/^["“']|["”']$/g, '').trim();
-    if (!caption) throw new Error('Gemini returned an empty caption.');
+    if (!caption) throw new Error('The active LLM returned an empty caption.');
     return { caption, prompt };
 }
