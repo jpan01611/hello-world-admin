@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import type { Route } from 'next';
 
 export default function OperationFilters({ initialQuery, initialStatus, initialProvider, providerOptions, showStatus, showProvider }: { initialQuery: string; initialStatus: string; initialProvider: string; providerOptions: string[]; showStatus: boolean; showProvider: boolean }) {
     const router = useRouter();
@@ -13,7 +14,7 @@ export default function OperationFilters({ initialQuery, initialStatus, initialP
         const params = new URLSearchParams(current.toString());
         if (value) params.set(name, value);
         else params.delete(name);
-        startTransition(() => router.replace(`${pathname}?${params.toString()}`));
+        startTransition(() => router.replace(`${pathname}?${params.toString()}` as Route));
     }
     return <div className="toolbar">
         <form className={`query-control${isPending ? ' is-searching' : ''}`} onSubmit={(event) => { event.preventDefault(); update('q', query.trim()); }}>

@@ -7,6 +7,18 @@ import MediaFilters from './MediaFilters';
 import ClickableTableRow from '../ClickableTableRow';
 import FeedCaptionSwitch from './FeedCaptionSwitch';
 
+type MediaCaption = {
+    id: string;
+    image_id: string;
+    created_by: string;
+    caption: string | null;
+    description: string | null;
+    vision_prompt: string | null;
+    caption_prompt: string | null;
+    created_at: string;
+};
+type MediaItem = MediaCaption;
+
 export default async function MediaPage({ searchParams }: { searchParams: Promise<{ q?: string; qField?: string; owner?: string; feed?: string; score?: string; sort?: string }> }) {
     const { supabase, user, profile } = await requireAuthenticated();
     const isSuperadmin = profile?.is_superadmin === true;
@@ -22,13 +34,15 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
         .order('created_at', { ascending: sortOrder === 'oldest' }).limit(100);
     if (imagesError) throw new Error(`Unable to load media images: ${imagesError.message}`);
     const imageIds = (sourceImages ?? []).map((image) => image.id);
-    const { data: captionRows, error: captionsError } = imageIds.length
+    const captionsResult = imageIds.length
         ? await supabase.from('captions').select('id, image_id, created_by, caption, description, vision_prompt, caption_prompt, created_at').in('image_id', imageIds)
-        : { data: [], error: null };
+        : { data: [] as MediaCaption[], error: null };
+    const captionRows = (captionsResult.data ?? []) as MediaCaption[];
+    const captionsError = captionsResult.error;
     if (captionsError) throw new Error(`Unable to load media captions: ${captionsError.message}`);
     const captionsByImage = new Map<string, typeof captionRows>();
     for (const caption of captionRows ?? []) captionsByImage.set(caption.image_id, [...(captionsByImage.get(caption.image_id) ?? []), caption]);
-    const media = (sourceImages ?? []).flatMap((image) => {
+    const media: MediaItem[] = (sourceImages ?? []).flatMap((image): MediaItem[] => {
         const captions = captionsByImage.get(image.id) ?? [];
         const matchingCaptions = query && queryField === 'caption'
             ? captions.filter((caption) => caption.caption?.toLowerCase().includes(query.toLowerCase()))
@@ -40,7 +54,16 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
                     ? captions.filter((caption) => caption.description?.toLowerCase().includes(query.toLowerCase()))
                 : captions;
         if (matchingCaptions.length) return matchingCaptions;
-        if (!query && captions.length === 0) return [{ id: `image-${image.id}`, image_id: image.id, created_by: image.created_by, caption: null, description: null, created_at: image.created_at }];
+        if (!query && captions.length === 0) return [{
+            id: `image-${image.id}`,
+            image_id: image.id,
+            created_by: image.created_by,
+            caption: null,
+            description: null,
+            vision_prompt: null,
+            caption_prompt: null,
+            created_at: image.created_at,
+        }];
         return [];
     });
     const captionIds = (captionRows ?? []).map((item) => item.id);
