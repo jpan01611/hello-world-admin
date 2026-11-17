@@ -27,7 +27,7 @@ const fieldExamples: Record<string, string> = {
     temperature: 'Example: 0.7',
     thinking_budget: 'Example: 0',
     model_id: 'Optional model UUID override',
-    model_key: 'Example: gemini-2.5-flash',
+    model_key: 'Example: gemini-3.8-flash',
     provider_id: 'Select the provider that owns this model.',
     chain_id: 'Example: UUID of an existing prompt chain',
     request_id: 'Example: UUID of an existing generation request',
