@@ -25,5 +25,7 @@ values
 on conflict (step_key) do nothing;
 
 alter table public.llm_generation_steps enable row level security;
+drop policy if exists "Authenticated users can read llm generation steps" on public.llm_generation_steps;
+drop policy if exists "Superadmins can manage llm generation steps" on public.llm_generation_steps;
 create policy "Authenticated users can read llm generation steps" on public.llm_generation_steps for select to authenticated using (true);
 create policy "Superadmins can manage llm generation steps" on public.llm_generation_steps for all to authenticated using (public.is_superadmin()) with check (public.is_superadmin());

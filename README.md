@@ -30,7 +30,7 @@ FunFunFunSahur Admin is a separate Next.js and Supabase administration console f
    cp .env.example .env.local
    ```
 
-3. Apply the Supabase migrations in `supabase/migrations/` to the target project. Migration `0022_admin_operations.sql` adds the prompt, generation, LLM, and signup-control resources; `0023_seed_prompt_chain.sql` adds the default caption chain; `0024_seed_gemini_llm.sql` seeds Gemini; `0026_capture_caption_operations.sql` records generation history; `0027_llm_provider_secret_reference.sql` adds server-secret indirection; and `0028_llm_generation_steps.sql` adds editable vision/caption step configuration.
+3. Apply the Supabase migrations in `supabase/migrations/` to the target project in numeric order. Migration `0022_admin_operations.sql` adds the prompt, generation, LLM, and signup-control resources; `0023_seed_prompt_chain.sql` adds the default caption chain; `0024_seed_gemini_llm.sql` seeds Gemini; `0026_capture_caption_operations.sql` records generation history; `0027_llm_provider_secret_reference.sql` adds server-secret indirection; `0028_llm_generation_steps.sql` adds editable vision/caption step configuration; `0029_increase_llm_output_limits.sql` raises provider response budgets; and `0030_update_gemini_model.sql` updates the Gemini model identifier.
 
 4. Start the development server:
 

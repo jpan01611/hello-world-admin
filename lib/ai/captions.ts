@@ -10,7 +10,12 @@ function client(apiKey: string, baseURL: string) {
     const cacheKey = `${apiKey}:${baseURL}`;
     const existing = clientCache.get(cacheKey);
     if (existing) return existing;
-    const created = new OpenAI({ apiKey, baseURL });
+    const created = new OpenAI({
+        apiKey,
+        baseURL,
+        maxRetries: 0,
+        timeout: 45_000,
+    });
     clientCache.set(cacheKey, created);
     return created;
 }
