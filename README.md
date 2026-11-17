@@ -30,7 +30,7 @@ FunFunFunSahur Admin is a separate Next.js and Supabase administration console f
    cp .env.example .env.local
    ```
 
-3. Apply the Supabase migrations in `supabase/migrations/` to the target project in numeric order. Migration `0022_admin_operations.sql` adds the prompt, generation, LLM, and signup-control resources; `0023_seed_prompt_chain.sql` adds the default caption chain; `0024_seed_gemini_llm.sql` seeds Gemini; `0026_capture_caption_operations.sql` records generation history; `0027_llm_provider_secret_reference.sql` adds server-secret indirection; `0028_llm_generation_steps.sql` adds editable vision/caption step configuration; `0029_increase_llm_output_limits.sql` raises provider response budgets; and `0030_update_gemini_model.sql` updates the Gemini model identifier.
+3. Apply the Supabase migrations in `supabase/migrations/` to the target project in numeric order. Migration `0022_admin_operations.sql` adds the prompt, generation, LLM, and signup-control resources; `0023_seed_prompt_chain.sql` adds the default caption chain; `0024_seed_gemini_llm.sql` seeds Gemini; `0026_capture_caption_operations.sql` records generation history; `0027_llm_provider_secret_reference.sql` adds server-secret indirection; `0028_llm_generation_steps.sql` adds editable vision/caption step configuration; `0029_increase_llm_output_limits.sql` raises provider response budgets; `0030_update_gemini_model.sql` updates the Gemini model identifier; and `0031_seed_openrouter_free_llm.sql` adds OpenRouter's free multimodal Gemma model and assigns it to both generation steps.
 
 4. Start the development server:
 
@@ -42,7 +42,7 @@ FunFunFunSahur Admin is a separate Next.js and Supabase administration console f
 
 The application expects the Supabase OAuth provider and redirect allowlist to be configured for the deployed application URL. Keep `.env.local` private; it is excluded by `.gitignore`.
 
-LLM provider/model records and generation-step rows are shared live configuration consumed by both this admin app and the user-facing frontend. API keys remain deployment-local server secrets such as `GEMINI_API_KEY` and `OPENAI_API_KEY`; `secret_env_var` stores only the variable name and never a key.
+LLM provider/model records and generation-step rows are shared live configuration consumed by both this admin app and the user-facing frontend. API keys remain deployment-local server secrets such as `GEMINI_API_KEY`, `OPENAI_API_KEY`, and `OPENROUTER_API_KEY`; `secret_env_var` stores only the variable name and never a key.
 
 The admin Operations workspace controls active providers, models, prompts, limits, and optional per-step model overrides. The frontend reads the same Supabase configuration server-side and falls back through eligible active providers. Keep the corresponding provider secrets configured in each deployment that can generate captions.
 
