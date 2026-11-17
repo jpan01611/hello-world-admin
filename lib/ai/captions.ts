@@ -95,6 +95,9 @@ async function complete(messages: OpenAI.Chat.Completions.ChatCompletionMessageP
     const failures: string[] = [];
     for (const configured of configurations) {
         try {
+            if (configured.providerName.toLowerCase().includes('gemini')) {
+                return await completeGemini(configured, messages, step);
+            }
             const result = await client(configured.apiKey, configured.baseURL || 'https://api.openai.com/v1').chat.completions.create({
                 model: configured.model,
                 max_tokens: step.max_tokens,
@@ -105,6 +108,48 @@ async function complete(messages: OpenAI.Chat.Completions.ChatCompletionMessageP
             return responseText(result);
         } catch (error) {
             failures.push(`${configured.providerName}: ${error instanceof Error ? error.message : 'request failed'}`);
+        }
+
+        async function completeGemini(
+            configured: { model: string; apiKey: string; baseURL?: string; providerName: string },
+            messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+            step: { max_tokens: number; temperature: number | null },
+        ) {
+            const contents = messages.map((message) => ({
+                role: message.role === 'assistant' ? 'model' : 'user',
+                parts: Array.isArray(message.content)
+                    ? message.content.map((part) => {
+                        if (part.type === 'text') return { text: part.text };
+                        if (part.type === 'image_url') {
+                            const match = part.image_url.url.match(/^data:([^;]+);base64,(.+)$/);
+                            if (!match) throw new Error('Gemini vision input must be an inline image.');
+                            return { inline_data: { mime_type: match[1], data: match[2] } };
+                        }
+                        throw new Error('Unsupported Gemini message content.');
+                    })
+                    : [{ text: String(message.content ?? '') }],
+            }));
+            const baseUrl = (configured.baseURL || 'https://generativelanguage.googleapis.com/v1beta/openai/').replace(/\/openai\/?$/, '');
+            const response = await fetch(`${baseUrl}/models/${encodeURIComponent(configured.model)}:generateContent?key=${encodeURIComponent(configured.apiKey)}`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                signal: AbortSignal.timeout(45_000),
+                body: JSON.stringify({
+                    contents,
+                    generationConfig: {
+                        maxOutputTokens: step.max_tokens,
+                        ...(step.temperature !== null ? { temperature: step.temperature } : {}),
+                    },
+                }),
+            });
+            const body = await response.json() as {
+                candidates?: { content?: { parts?: { text?: string }[] } }[];
+                error?: { message?: string };
+            };
+            if (!response.ok) throw new Error(body.error?.message || `Gemini request failed with HTTP ${response.status}`);
+            const text = body.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('').trim();
+            if (!text) throw new Error('Gemini returned no usable content.');
+            return text;
         }
     }
     throw new Error(`All active LLM providers failed. ${failures.join(' | ')}`);
